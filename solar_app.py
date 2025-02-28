@@ -67,7 +67,78 @@ with st.sidebar:
         if seleccion_nivel and "Seleccionar todo" not in seleccion_nivel:
             columnas_nivel = [col for col in df.columns if any(n in col for n in seleccion_nivel)]
             df_filtrado = df_filtrado[[periodo_col] + ([origen_col] if origen_col else []) + columnas_nivel]
+            
+    # ============================
+    # Menú para ingresar datos
+    # ============================
+    st.markdown("## Ingresar Datos")
+    with st.form(key='ingreso_datos_form'):
+        nuevo_periodo = st.text_input("Nuevo Período")
+        nuevo_basico_solar = st.number_input("Básico Solar", min_value=0.0, format="%.2f")
+        nuevo_intermedio1_solar = st.number_input("Intermedio 1 Solar", min_value=0.0, format="%.2f")
+        nuevo_intermedio2_solar = st.number_input("Intermedio 2 Solar", min_value=0.0, format="%.2f")
+        nuevo_excedente_solar = st.number_input("Excedente Solar", min_value=0.0, format="%.2f")
+        nuevo_basico_cfe = st.number_input("Básico CFE", min_value=0.0, format="%.2f")
+        nuevo_intermedio1_cfe = st.number_input("Intermedio 1 CFE", min_value=0.0, format="%.2f")
+        nuevo_intermedio2_cfe = st.number_input("Intermedio 2 CFE", min_value=0.0, format="%.2f")
+        nuevo_excedente_cfe = st.number_input("Excedente CFE", min_value=0.0, format="%.2f")
+        
+        submit_button = st.form_submit_button(label='Agregar Datos')
 
+    if submit_button:
+        # Calcular campos faltantes para el nuevo registro
+        
+        if "No. Periodo" in df.columns:
+            nuevo_num_periodo = df["No. Periodo"].max() + 1
+        else:
+            nuevo_num_periodo = 1  # Si no existe la columna, empezar desde 1
+        
+        subtotal_solar = (
+            nuevo_basico_solar + nuevo_intermedio1_solar + 
+            nuevo_intermedio2_solar + nuevo_excedente_solar
+        )
+        
+        iva_solar = subtotal_solar * 0.16
+        total_recibo_solar = subtotal_solar + iva_solar
+        
+        subtotal_cfe = (
+            nuevo_basico_cfe + nuevo_intermedio1_cfe + 
+            nuevo_intermedio2_cfe + nuevo_excedente_cfe
+        )
+        
+        iva_cfe = subtotal_cfe * 0.16
+        
+        total_cfe = subtotal_cfe + iva_cfe
+        
+        ahorro_total = total_cfe - total_recibo_solar
+        
+        nuevo_registro = {
+            periodo_col: nuevo_periodo,
+            "No. Periodo": nuevo_num_periodo,
+            "Básico Solar": nuevo_basico_solar,
+            "Intermedio 1 Solar": nuevo_intermedio1_solar,
+            "Intermedio 2 Solar": nuevo_intermedio2_solar,
+            "Excedente Solar": nuevo_excedente_solar,
+            "Básico CFE": nuevo_basico_cfe,
+            "Intermedio 1 CFE": nuevo_intermedio1_cfe,
+            "Intermedio 2 CFE": nuevo_intermedio2_cfe,
+            "Excedente CFE": nuevo_excedente_cfe,
+            "Subtotal Solar": subtotal_solar,
+            "IVA Solar": iva_solar,
+            "Total de recibo Solar": total_recibo_solar,
+            "Subtotal CFE": subtotal_cfe,
+            "IVA CFE": iva_cfe,
+            "Subtotal CFE.1": total_cfe, 
+            "Ahorro Total": ahorro_total
+        }
+        
+        # Agregar el nuevo registro al DataFrame
+        df = pd.concat([df, pd.DataFrame([nuevo_registro])], ignore_index=True)
+        
+        # Guardar el DataFrame actualizado en el archivo Excel
+        df.to_excel(EXCEL_PATH, sheet_name=EXCEL_SHEET, index=False)
+        st.success("Datos agregados correctamente y guardados en el archivo!")
+    
 # ============================
 # Análisis clave
 # ============================
@@ -146,9 +217,9 @@ with col2:
 # ============================
 st.subheader("Comparación de Consumo Real vs Estimado")
 fig_comparativo = px.bar(
-    df_filtrado, x=periodo_col, y=["Total de recibo Solar", "Subtotal CFE"],
+    df_filtrado, x=periodo_col, y=["Total de recibo Solar", "Subtotal CFE.1"],
     barmode="group", title="Consumo Real (Verde) vs Estimado (Amarillo)",
-    color_discrete_map={"Total de recibo Solar": "#2ECC71", "Subtotal CFE": "#F4D03F"}
+    color_discrete_map={"Total de recibo Solar": "#2ECC71", "Subtotal CFE.1": "#F4D03F"}
 )
 st.plotly_chart(fig_comparativo, use_container_width=True)
 
